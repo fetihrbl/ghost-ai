@@ -74,7 +74,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   /* App-level brand tokens — see context/ui-context.md */
-  --color-base: var(--bg-base);
   --color-surface: var(--bg-surface);
   --color-elevated: var(--bg-elevated);
   --color-subtle: var(--bg-subtle);
@@ -91,6 +90,18 @@
   --color-state-error: var(--state-error);
   --color-state-success: var(--state-success);
   --color-state-warning: var(--state-warning);
+}
+
+/*
+ * Defined outside the `--color-*` theme namespace (as a plain `@utility`,
+ * not a theme color) so it only generates `bg-base`. Registering it as a
+ * theme color would also auto-generate `text-base`, which collides with
+ * Tailwind's built-in `text-base` font-size utility and silently overrides
+ * its color to the page background on every element that uses it for sizing
+ * (dialog titles, inputs, textareas, card titles).
+ */
+@utility bg-base {
+  background-color: var(--bg-base);
 }
 
 @layer base {

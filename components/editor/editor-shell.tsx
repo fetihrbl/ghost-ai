@@ -1,16 +1,16 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
+import { EditorHome } from "@/components/editor/editor-home"
+import { ProjectDialogs } from "@/components/editor/project-dialogs"
+import { useProjectDialogs } from "@/hooks/use-project-dialogs"
 
-interface EditorShellProps {
-  children: ReactNode
-}
-
-function EditorShell({ children }: EditorShellProps) {
+function EditorShell() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const dialogs = useProjectDialogs()
 
   return (
     <div className="flex h-full min-h-screen flex-col bg-base">
@@ -22,9 +22,15 @@ function EditorShell({ children }: EditorShellProps) {
         <ProjectSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
+          myProjects={dialogs.myProjects}
+          sharedProjects={dialogs.sharedProjects}
+          onNewProject={dialogs.openCreateDialog}
+          onRenameProject={dialogs.openRenameDialog}
+          onDeleteProject={dialogs.openDeleteDialog}
         />
-        {children}
+        <EditorHome onNewProject={dialogs.openCreateDialog} />
       </div>
+      <ProjectDialogs dialogs={dialogs} />
     </div>
   )
 }
