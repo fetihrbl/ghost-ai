@@ -12,6 +12,7 @@ interface ProjectSidebarProps {
   onClose: () => void
   myProjects: Project[]
   sharedProjects: Project[]
+  activeProjectId?: string
   onNewProject: () => void
   onRenameProject: (project: Project) => void
   onDeleteProject: (project: Project) => void
@@ -22,6 +23,7 @@ function ProjectSidebar({
   onClose,
   myProjects,
   sharedProjects,
+  activeProjectId,
   onNewProject,
   onRenameProject,
   onDeleteProject,
@@ -78,34 +80,46 @@ function ProjectSidebar({
               </div>
             ) : (
               <ul className="flex flex-col gap-0.5 py-2">
-                {myProjects.map((project) => (
-                  <li
-                    key={project.id}
-                    className="group flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-elevated"
-                  >
-                    <span className="truncate text-sm text-copy-primary">
-                      {project.name}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={`Rename ${project.name}`}
-                        onClick={() => onRenameProject(project)}
+                {myProjects.map((project) => {
+                  const isActive = project.id === activeProjectId
+                  return (
+                    <li
+                      key={project.id}
+                      aria-current={isActive ? "true" : undefined}
+                      className={cn(
+                        "group flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-elevated",
+                        isActive && "bg-accent-dim"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "truncate text-sm",
+                          isActive ? "text-brand" : "text-copy-primary"
+                        )}
                       >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={`Delete ${project.name}`}
-                        onClick={() => onDeleteProject(project)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
+                        {project.name}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={`Rename ${project.name}`}
+                          onClick={() => onRenameProject(project)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={`Delete ${project.name}`}
+                          onClick={() => onDeleteProject(project)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </TabsContent>
@@ -116,14 +130,23 @@ function ProjectSidebar({
               </div>
             ) : (
               <ul className="flex flex-col gap-0.5 py-2">
-                {sharedProjects.map((project) => (
-                  <li
-                    key={project.id}
-                    className="truncate rounded-lg px-2 py-1.5 text-sm text-copy-primary"
-                  >
-                    {project.name}
-                  </li>
-                ))}
+                {sharedProjects.map((project) => {
+                  const isActive = project.id === activeProjectId
+                  return (
+                    <li
+                      key={project.id}
+                      aria-current={isActive ? "true" : undefined}
+                      className={cn(
+                        "truncate rounded-lg px-2 py-1.5 text-sm",
+                        isActive
+                          ? "bg-accent-dim text-brand"
+                          : "text-copy-primary"
+                      )}
+                    >
+                      {project.name}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </TabsContent>

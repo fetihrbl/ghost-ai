@@ -1,7 +1,7 @@
 "use client"
 
 import { UserButton } from "@clerk/nextjs"
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { PanelLeftClose, PanelLeftOpen, Share2, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -9,12 +9,20 @@ import { cn } from "@/lib/utils"
 interface EditorNavbarProps {
   isSidebarOpen: boolean
   onToggleSidebar: () => void
+  projectName?: string
+  isAiSidebarOpen?: boolean
+  onToggleAiSidebar?: () => void
+  onShare?: () => void
   className?: string
 }
 
 function EditorNavbar({
   isSidebarOpen,
   onToggleSidebar,
+  projectName,
+  isAiSidebarOpen = false,
+  onToggleAiSidebar,
+  onShare,
   className,
 }: EditorNavbarProps) {
   return (
@@ -38,8 +46,42 @@ function EditorNavbar({
           )}
         </Button>
       </div>
-      <div className="flex flex-1 items-center justify-center" />
-      <div className="flex flex-1 items-center justify-end">
+      <div className="flex flex-1 items-center justify-center overflow-hidden">
+        {projectName ? (
+          <span className="truncate text-sm font-medium text-copy-primary">
+            {projectName}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-1 items-center justify-end gap-1">
+        {onToggleAiSidebar ? (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onShare}
+              aria-label="Share project"
+            >
+              <Share2 className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleAiSidebar}
+              aria-pressed={isAiSidebarOpen}
+              aria-label={
+                isAiSidebarOpen ? "Close AI sidebar" : "Open AI sidebar"
+              }
+            >
+              <Sparkles
+                className={cn(
+                  "h-5 w-5",
+                  isAiSidebarOpen && "text-ai-text"
+                )}
+              />
+            </Button>
+          </>
+        ) : null}
         <UserButton />
       </div>
     </nav>

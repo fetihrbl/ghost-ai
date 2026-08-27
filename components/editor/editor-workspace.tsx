@@ -6,7 +6,7 @@ interface EditorWorkspaceProps {
 
 function EditorWorkspace({ project }: EditorWorkspaceProps) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-base px-6 text-center">
       <h1 className="text-lg font-medium text-copy-primary">{project.name}</h1>
       <p className="text-sm text-copy-muted">Canvas coming soon.</p>
     </div>
