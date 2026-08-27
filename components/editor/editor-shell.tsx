@@ -5,12 +5,24 @@ import { useState } from "react"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
 import { EditorHome } from "@/components/editor/editor-home"
+import { EditorWorkspace } from "@/components/editor/editor-workspace"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
-import { useProjectDialogs } from "@/hooks/use-project-dialogs"
+import { useProjectActions } from "@/hooks/use-project-actions"
+import type { Project } from "@/types/project"
 
-function EditorShell() {
+interface EditorShellProps {
+  ownedProjects: Project[]
+  sharedProjects: Project[]
+  activeProject?: Project | null
+}
+
+function EditorShell({
+  ownedProjects,
+  sharedProjects,
+  activeProject = null,
+}: EditorShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const dialogs = useProjectDialogs()
+  const actions = useProjectActions({ activeProjectId: activeProject?.id })
 
   return (
     <div className="flex h-full min-h-screen flex-col bg-base">
@@ -22,15 +34,19 @@ function EditorShell() {
         <ProjectSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
-          myProjects={dialogs.myProjects}
-          sharedProjects={dialogs.sharedProjects}
-          onNewProject={dialogs.openCreateDialog}
-          onRenameProject={dialogs.openRenameDialog}
-          onDeleteProject={dialogs.openDeleteDialog}
+          myProjects={ownedProjects}
+          sharedProjects={sharedProjects}
+          onNewProject={actions.openCreateDialog}
+          onRenameProject={actions.openRenameDialog}
+          onDeleteProject={actions.openDeleteDialog}
         />
-        <EditorHome onNewProject={dialogs.openCreateDialog} />
+        {activeProject ? (
+          <EditorWorkspace project={activeProject} />
+        ) : (
+          <EditorHome onNewProject={actions.openCreateDialog} />
+        )}
       </div>
-      <ProjectDialogs dialogs={dialogs} />
+      <ProjectDialogs actions={actions} />
     </div>
   )
 }

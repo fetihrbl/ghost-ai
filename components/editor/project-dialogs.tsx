@@ -12,24 +12,24 @@ import {
   EditorDialogContent,
   EditorDialogFooter,
 } from "@/components/editor/editor-dialog"
-import type { useProjectDialogs } from "@/hooks/use-project-dialogs"
+import type { useProjectActions } from "@/hooks/use-project-actions"
 
 interface ProjectDialogsProps {
-  dialogs: ReturnType<typeof useProjectDialogs>
+  actions: ReturnType<typeof useProjectActions>
 }
 
-function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
+function ProjectDialogs({ actions }: ProjectDialogsProps) {
   const {
     dialog,
     name,
-    slug,
+    roomId,
     isLoading,
     setName,
     closeDialog,
     createProject,
     renameProject,
     deleteProject,
-  } = dialogs
+  } = actions
 
   const renameInputRef = useRef<HTMLInputElement>(null)
 
@@ -60,7 +60,7 @@ function ProjectDialogs({ dialogs }: ProjectDialogsProps) {
               placeholder="Project name"
             />
             <p className="truncate text-sm text-copy-muted">
-              {slug || "your-project-slug"}
+              Room ID: {roomId || "your-room-id"}
             </p>
           </div>
           <EditorDialogFooter>
