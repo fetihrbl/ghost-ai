@@ -44,7 +44,7 @@ function EditorShell({
         }
         onShare={activeProject ? () => setIsShareDialogOpen(true) : undefined}
       />
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex-1">
         <ProjectSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
