@@ -54,7 +54,7 @@ Force human mode with `--mode human` or `CLERK_MODE=human`. Typical AI-agent inv
 | `clerk link --app <id>`                                          | Links directly                                                   | Links directly                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `clerk link` without `--app`                                     | Interactive picker / create UI                                   | Tries silent autolink from detected publishable keys; if no deterministic match exists, exits with a usage error telling the caller to pass `--app`                                                                                                                                                                                                                                                                                  |
 | `unlink` confirmation                                            | Prompt y/n                                                       | Requires `--yes`; exits with a usage error without it |
-| All other mutation confirmations (`config patch` / `put`, `api -X POST/PATCH/DELETE`, `users create`, `enable` / `disable`) | Prompt y/n | **Silently skipped - the mutation executes.** These gates are `isHuman() && !options.yes`, so agent mode bypasses them entirely: `--yes` is neither required nor meaningful, and nothing errors. `--dry-run` is the only safety net                                                                                                                                                                                                                                                                                                                                                                                                     |
+| All other mutation confirmations (`config patch` / `put`, `api -X POST/PATCH/DELETE`, `users create`, `enable` / `disable`) | Prompt y/n | **Silently skipped - the mutation executes.** These gates are `isHuman() && !options.yes`, so agent mode bypasses them entirely: `--yes` is neither required nor meaningful, and nothing errors. Agents must preview when supported, show the resolved target, and obtain explicit user approval before every real destructive or non-idempotent mutation. |
 | `clerk doctor --fix`                                             | Interactively offers fixes                                       | **Ignored**; output the `remedy` field and let the caller act                                                                                                                                                                                                                                                                                                                                                                        |
 | `clerk apps list` default output                                 | Table                                                            | JSON (when piped)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `clerk apps create <name>` output                                | Human-readable summary                                           | JSON (auto-detected, same as `apps list`); `--json` also works explicitly                                                                                                                                                                                                                                                                                                                                                            |
@@ -74,7 +74,7 @@ Force human mode with `--mode human` or `CLERK_MODE=human`. Typical AI-agent inv
 In addition, sandboxed agent-mode invocations may emit the warning above once
 per CLI invocation when a host-sensitive operation is blocked.
 
-**Rule of thumb:** always pass `--yes` for mutations and `--json` for structured output where available. Pass `--app` / `--instance` when you intentionally target a real app. Bootstrapping without authentication needs no flag at all — temporary development keys are the default; `--keyless` forces that path over both a signed-in session and an existing linked profile.
+**Rule of thumb:** use `--json` for structured output where available. Preview mutations when supported, show the resolved target, obtain explicit user approval, and only then pass `--yes` where the real command accepts it. `--yes` is a non-interactive flag, not evidence of approval. Pass `--app` / `--instance` when you intentionally target a real app. Bootstrapping without authentication needs no flag at all — temporary development keys are the default; `--keyless` forces that path over both a signed-in session and an existing linked profile.
 
 ## Passing options as JSON: `--input-json`
 
@@ -176,7 +176,8 @@ relevant command on the host.
 ```sh
 # Dry run first
 clerk api /users/user_abc123 -X DELETE --dry-run
-# If the preview is what you expected, run it with --yes
+# Show the resolved target and preview, then obtain explicit user approval.
+# Only after approval, run it with --yes.
 clerk api /users/user_abc123 -X DELETE --yes
 ```
 
@@ -289,5 +290,5 @@ All three remediation commands are themselves interactive by default: `auth logi
 - **Don't call `clerk link` without `--app` and assume the agent can pick for you** - it only succeeds when silent autolink can determine the app from detected keys.
 - **Don't run `clerk unlink` in agent mode without `--yes`** - it exits with a usage error instead of prompting.
 - **Don't run `clerk config put` without `--dry-run` first** - it's a full replacement and is destructive.
-- **Don't skip `--yes` on mutations and expect them to work** - agent mode disables prompts, so commands that require confirmation will error.
+- **Don't treat `--yes` or `--dry-run` as user approval** - agent mode disables most prompts, so explicitly show the resolved target and obtain approval before every real destructive or non-idempotent mutation.
 - **Don't leak secret keys into logs** - the CLI never prints the raw secret key, and you shouldn't either.

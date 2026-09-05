@@ -202,12 +202,14 @@ For standalone API servers that receive Clerk session tokens from the `Authoriza
 ```typescript
 import { verifyToken } from '@clerk/backend'
 
+const authorizedParties = ['https://example.com']
 const token = req.headers.authorization?.replace('Bearer ', '')
 if (!token) return res.status(401).json({ error: 'No token' })
 
 try {
   const claims = await verifyToken(token, {
     jwtKey: process.env.CLERK_JWT_KEY,
+    authorizedParties,
   })
   // claims.sub = userId
 } catch {
@@ -220,13 +222,17 @@ try {
 ```typescript
 import jwt from 'jsonwebtoken'
 
+const authorizedParties = ['https://example.com']
 const publicKey = process.env.CLERK_PEM_PUBLIC_KEY!.replace(/\\n/g, '\n')
 const token = req.headers.authorization?.replace('Bearer ', '')
 if (!token) return res.status(401).json({ error: 'No token' })
 
 try {
   const claims = jwt.verify(token, publicKey, { algorithms: ['RS256'] }) as jwt.JwtPayload
-  // Manually check exp and nbf (jsonwebtoken does this automatically, but verify azp if needed)
+  // jsonwebtoken validates exp and nbf by default; bind the token to an allowed origin too.
+  if (typeof claims.azp !== 'string' || !authorizedParties.includes(claims.azp)) {
+    throw new Error('Invalid authorized party')
+  }
   // claims.sub = userId
 } catch {
   return res.status(401).json({ error: 'Invalid or expired token' })

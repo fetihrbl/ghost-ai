@@ -33,35 +33,42 @@ clerk users list --email-address alice@example.com
 clerk users open user_abc123
 clerk users open user_abc123 --print     # print the URL instead of opening
 
-# Create a user (preferred; curated flags)
-clerk users create \
-  --email alice@example.com \
-  --password 'SuperSecret123!' \
-  --first-name Alice \
-  --last-name Doe \
-  --yes
+# Create a unique mode-0600 payload file and edit the password inside it; never
+# put the password in argv, shell history, logs, or a committed file.
+CLERK_USER_PAYLOAD="$(mktemp)"
+chmod 600 "$CLERK_USER_PAYLOAD"
+# Populate $CLERK_USER_PAYLOAD with the fields below, replacing <password> only
+# inside the protected file:
+# {"email_address":["alice@example.com"],"password":"<password>","first_name":"Alice","last_name":"Doe"}
 
-# Equivalent raw BAPI call. Use only when curated flags don't cover a field.
-clerk api /users -d '{
-  "email_address": ["alice@example.com"],
-  "password": "SuperSecret123!",
-  "first_name": "Alice",
-  "last_name": "Doe"
-}'
+# Preferred user command: preview, confirm the resolved target with the user,
+# obtain explicit approval, and only then execute the real request.
+clerk users create --file "$CLERK_USER_PAYLOAD" --dry-run
+# After explicit user approval:
+clerk users create --file "$CLERK_USER_PAYLOAD" --yes
 
-# Update (PATCH merges)
-clerk api /users/user_abc123 -X PATCH -d '{"first_name":"Alicia"}'
+# Equivalent raw BAPI alternative. Use only when the curated command does not
+# cover a field; do not run both create commands.
+clerk api /users --file "$CLERK_USER_PAYLOAD" --dry-run
+# After explicit user approval:
+clerk api /users --file "$CLERK_USER_PAYLOAD" --yes
+rm -f "$CLERK_USER_PAYLOAD"
 
-# Ban / unban
-clerk api /users/user_abc123/ban -X POST
-clerk api /users/user_abc123/unban -X POST
+# Update (PATCH merges): preview, obtain explicit approval, then execute
+clerk api /users/user_abc123 -X PATCH -d '{"first_name":"Alicia"}' --dry-run
+# After explicit user approval:
+clerk api /users/user_abc123 -X PATCH -d '{"first_name":"Alicia"}' --yes
 
-# Lock / unlock
-clerk api /users/user_abc123/lock -X POST
-clerk api /users/user_abc123/unlock -X POST
+# Ban: preview, obtain explicit approval, then execute
+clerk api /users/user_abc123/ban -X POST --dry-run
+# After explicit user approval:
+clerk api /users/user_abc123/ban -X POST --yes
 
-# Delete (PREVIEW FIRST)
+# Unban and lock/unlock follow the same preview -> explicit approval -> real-command sequence.
+
+# Delete: preview, confirm the resolved target, obtain explicit approval, then execute
 clerk api /users/user_abc123 -X DELETE --dry-run
+# After explicit user approval:
 clerk api /users/user_abc123 -X DELETE --yes
 ```
 
@@ -72,24 +79,30 @@ For test accounts you need to sign into without real email or SMS delivery, Cler
 **By email.** Any address with the `+clerk_test` subaddress is recognized as a test email. The domain portion is arbitrary.
 
 ```sh
-# Create a test user with a test email (dev instance)
-# `skip_password_checks` isn't a curated flag, so pass the body via `-d`.
-clerk users create -d '{
-  "email_address": ["demo+clerk_test@example.com"],
-  "password": "TestPass123!",
-  "skip_password_checks": true
-}' --yes
+# Create a test user with a test email (dev instance). Put the body, including
+# the password and skip_password_checks, in a mode-0600 file rather than argv.
+CLERK_TEST_EMAIL_PAYLOAD="$(mktemp)"
+chmod 600 "$CLERK_TEST_EMAIL_PAYLOAD"
+# Populate the file with: {"email_address":["demo+clerk_test@example.com"],
+# "password":"<password>","skip_password_checks":true}
+clerk users create --file "$CLERK_TEST_EMAIL_PAYLOAD" --dry-run
+# After explicit user approval:
+clerk users create --file "$CLERK_TEST_EMAIL_PAYLOAD" --yes
+rm -f "$CLERK_TEST_EMAIL_PAYLOAD"
 ```
 
 **By phone.** Any US fictional phone number in the `+1 (XXX) 555-0100` through `+1 (XXX) 555-0199` range is recognized as a test phone. Pass the E.164 form.
 
 ```sh
-# Create a test user with a test phone (dev instance)
-clerk users create -d '{
-  "phone_number": ["+12015550100"],
-  "password": "TestPass123!",
-  "skip_password_checks": true
-}' --yes
+# Create a test user with a test phone (dev instance), again using a protected file.
+CLERK_TEST_PHONE_PAYLOAD="$(mktemp)"
+chmod 600 "$CLERK_TEST_PHONE_PAYLOAD"
+# Populate the file with: {"phone_number":["+12015550100"],
+# "password":"<password>","skip_password_checks":true}
+clerk users create --file "$CLERK_TEST_PHONE_PAYLOAD" --dry-run
+# After explicit user approval:
+clerk users create --file "$CLERK_TEST_PHONE_PAYLOAD" --yes
+rm -f "$CLERK_TEST_PHONE_PAYLOAD"
 ```
 
 When signing in as either user in a browser or Playwright, enter `424242` at the OTP prompt.
@@ -106,20 +119,37 @@ clerk api '/organizations?limit=20&query=acme'
 # Fetch
 clerk api /organizations/org_abc123
 
-# Create
-clerk api /organizations -d '{"name":"Acme","created_by":"user_abc123"}'
+# Create: preview, obtain explicit approval, then execute
+clerk api /organizations -d '{"name":"Acme","created_by":"user_abc123"}' --dry-run
+# After explicit user approval:
+clerk api /organizations -d '{"name":"Acme","created_by":"user_abc123"}' --yes
 
-# Update
-clerk api /organizations/org_abc123 -X PATCH -d '{"name":"Acme Inc."}'
+# Update: preview, obtain explicit approval, then execute
+clerk api /organizations/org_abc123 -X PATCH -d '{"name":"Acme Inc."}' --dry-run
+# After explicit user approval:
+clerk api /organizations/org_abc123 -X PATCH -d '{"name":"Acme Inc."}' --yes
 
 # Members
 clerk api /organizations/org_abc123/memberships
-clerk api /organizations/org_abc123/memberships -d '{"user_id":"user_xyz","role":"org:member"}'
-clerk api /organizations/org_abc123/memberships/user_xyz -X PATCH -d '{"role":"org:admin"}'
-clerk api /organizations/org_abc123/memberships/user_xyz -X DELETE --dry-run
+# Preview the intended membership mutation and confirm the target with the user.
+clerk api /organizations/org_abc123/memberships -d '{"user_id":"user_xyz","role":"org:member"}' --dry-run
+# After explicit user approval:
+clerk api /organizations/org_abc123/memberships -d '{"user_id":"user_xyz","role":"org:member"}' --yes
 
-# Invitations
-clerk api /organizations/org_abc123/invitations -d '{"email_address":"new@acme.com","role":"org:member"}'
+# Change a membership role: preview, obtain explicit approval, then execute
+clerk api /organizations/org_abc123/memberships/user_xyz -X PATCH -d '{"role":"org:admin"}' --dry-run
+# After explicit user approval:
+clerk api /organizations/org_abc123/memberships/user_xyz -X PATCH -d '{"role":"org:admin"}' --yes
+
+# Remove a membership: preview, obtain explicit approval, then execute
+clerk api /organizations/org_abc123/memberships/user_xyz -X DELETE --dry-run
+# After explicit user approval:
+clerk api /organizations/org_abc123/memberships/user_xyz -X DELETE --yes
+
+# Invitations: preview, obtain explicit approval, then execute
+clerk api /organizations/org_abc123/invitations -d '{"email_address":"new@acme.com","role":"org:member"}' --dry-run
+# After explicit user approval:
+clerk api /organizations/org_abc123/invitations -d '{"email_address":"new@acme.com","role":"org:member"}' --yes
 ```
 
 If organization endpoints return `organization_not_enabled_in_instance`, enable the feature first with the dedicated toggle:
@@ -130,6 +160,7 @@ clerk api /instance/organization_settings
 
 # Preview, then enable organizations for this instance
 clerk enable orgs --dry-run
+# After confirming the target and obtaining explicit user approval:
 clerk enable orgs --yes
 ```
 
@@ -142,12 +173,14 @@ For org settings the toggle flags don't cover, fall back to `clerk config patch 
 clerk api '/sessions?user_id=user_abc123&status=active'
 
 # Revoke a session
-clerk api /sessions/sess_abc123/revoke -X POST
+clerk api /sessions/sess_abc123/revoke -X POST --dry-run
+# After explicit user approval:
+clerk api /sessions/sess_abc123/revoke -X POST --yes
 ```
 
 ## Impersonation (sign in as a user)
 
-Impersonation goes through `clerk impersonate` (alias `imp`): it creates an actor token stamped `cli:<your-email>` so every impersonation session is traceable. Requires `clerk auth login`.
+Impersonation goes through `clerk impersonate` (alias `imp`): it creates an actor token stamped `cli:<your-email>` so every impersonation session is traceable. Requires `clerk auth login`. It has no dry-run; resolve the user and instance, show them to the user, and obtain explicit approval before creating or revoking a token.
 
 ```sh
 # Print the sign-in URL for a user (agent-safe: no browser, no prompt)
@@ -163,18 +196,28 @@ clerk imp user_abc123 --yes --expires-in 900
 clerk imp revoke act_abc123
 ```
 
-To mint a one-time **sign-in token** instead - for building custom token sign-in flows, signing in *as* the user with no actor audit trail - use the raw API:
+To mint a one-time **sign-in token** instead - for building custom token sign-in flows, signing in *as* the user with no actor audit trail - preview the request, confirm the target, and obtain explicit approval before using the raw API:
 
 ```sh
-clerk api /sign_in_tokens -d '{"user_id":"user_abc123"}'
+clerk api /sign_in_tokens -d '{"user_id":"user_abc123"}' --dry-run
+# After explicit user approval:
+clerk api /sign_in_tokens -d '{"user_id":"user_abc123"}' --yes
 ```
+
+The response contains a user-authentication credential. Never log or commit the token or its sign-in URL. Prefer `clerk imp` when operator attribution is required.
 
 ## Invitations (top-level, not org-scoped)
 
 ```sh
 clerk api /invitations
-clerk api /invitations -d '{"email_address":"new@example.com","redirect_url":"https://example.com/welcome"}'
-clerk api /invitations/inv_abc123/revoke -X POST
+clerk api /invitations -d '{"email_address":"new@example.com","redirect_url":"https://example.com/welcome"}' --dry-run
+# After explicit user approval:
+clerk api /invitations -d '{"email_address":"new@example.com","redirect_url":"https://example.com/welcome"}' --yes
+
+# Revoke: preview, obtain explicit approval, then execute
+clerk api /invitations/inv_abc123/revoke -X POST --dry-run
+# After explicit user approval:
+clerk api /invitations/inv_abc123/revoke -X POST --yes
 ```
 
 ## JWT templates
@@ -186,7 +229,9 @@ clerk api /jwt_templates -d '{
   "name": "supabase",
   "claims": {"aud": "authenticated", "role": "authenticated"},
   "lifetime": 60
-}'
+}' --dry-run
+# After explicit user approval:
+clerk api /jwt_templates -d '{"name":"supabase","claims":{"aud":"authenticated","role":"authenticated"},"lifetime":60}' --yes
 ```
 
 ## Webhooks (local testing)
@@ -229,10 +274,12 @@ clerk config schema --keys session sign_in social
 
 # PATCH: surgical updates
 clerk config patch --json '{"session":{"lifetime":3600}}' --dry-run
+# After confirming the target and obtaining explicit user approval:
 clerk config patch --json '{"session":{"lifetime":3600}}' --yes
 
 # PUT: replace everything (destructive - always --dry-run first)
-clerk config put --file config.prod.json --dry-run
+clerk config put --file config.prod.json --instance prod --dry-run
+# After confirming the production target and obtaining explicit user approval:
 clerk config put --file config.prod.json --instance prod --yes
 ```
 
@@ -313,8 +360,14 @@ done
 ### Read body from stdin
 
 ```sh
-echo '{"first_name":"Bob"}' | clerk api /users/user_abc123 -X PATCH
-jq -n '{email_address:["c@d.co"]}' | clerk api /users
+# Preview the stdin payload, confirm the resolved target, and obtain approval.
+echo '{"first_name":"Bob"}' | clerk api /users/user_abc123 -X PATCH --dry-run
+# After explicit user approval:
+echo '{"first_name":"Bob"}' | clerk api /users/user_abc123 -X PATCH --yes
+
+jq -n '{email_address:["c@d.co"]}' | clerk api /users --dry-run
+# After explicit user approval:
+jq -n '{email_address:["c@d.co"]}' | clerk api /users --yes
 ```
 
 ### Loop safely
@@ -325,7 +378,8 @@ jq -n '{email_address:["c@d.co"]}' | clerk api /users
 for id in $(clerk users list --json --limit 250 | jq -r '.data[] | .id'); do
   clerk api /users/$id -X PATCH -d '{"public_metadata":{"migrated":true}}' --dry-run
 done
-# Re-run without --dry-run once the previews look right
+# After showing the resolved targets and obtaining explicit user approval,
+# re-run without --dry-run.
 ```
 
 ### Target multiple instances

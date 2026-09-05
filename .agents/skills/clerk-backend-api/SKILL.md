@@ -32,15 +32,15 @@ Before ANY POST / PATCH / PUT / DELETE, you MUST do ALL of the following in your
 
 ---
 
-## FAST PATH: Common operations (use directly, no spec fetching needed)
+## FAST PATH: Common operations (no spec fetching needed)
 
-For the operations below, skip spec fetching and execute immediately using these exact templates. Substitute `$CLERK_SECRET_KEY`, `$USER_ID`, `$ORG_ID`, `$EMAIL` as needed from the user's context.
+For the operations below, skip spec fetching. Execute GET requests directly. Before every POST or PATCH, complete the mandatory secret-key and scope checks above, show the resolved target and payload, and obtain explicit user confirmation; only then execute the template. Substitute `$CLERK_SECRET_KEY`, `$USER_ID`, `$ORG_ID`, `$EMAIL` as needed from the user's context.
 
 ### Create organization + invite member (two-step)
 
 ```bash
 # Step 1 — Create organization
-ORG=$(curl -s -X POST "https://api.clerk.com/v1/organizations" \
+ORG=$(curl -s -X POST "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1/organizations" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"Acme Corp\", \"created_by\": \"$USER_ID\"}")
@@ -50,7 +50,7 @@ echo "$ORG" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.du
 ORG_ID=$(echo "$ORG" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
 # Step 3 — Invite member with role
-curl -s -X POST "https://api.clerk.com/v1/organizations/${ORG_ID}/invitations" \
+curl -s -X POST "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1/organizations/${ORG_ID}/invitations" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"email_address\": \"user@example.com\", \"role\": \"org:admin\"}" \
@@ -94,7 +94,7 @@ const invitation = await clerkClient.organizations.createOrganizationInvitation(
 **For `plan: 'pro'` and `onboarded: true` — use `public_metadata`** (frontend-readable, server-writable):
 
 ```bash
-curl -s -X PATCH "https://api.clerk.com/v1/users/${USER_ID}" \
+curl -s -X PATCH "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1/users/${USER_ID}" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d '{"public_metadata": {"plan": "pro", "onboarded": true}}' \
@@ -119,7 +119,7 @@ await clerkClient.users.updateUser(userId, {
 ### List users (last 7 days)
 
 ```bash
-curl -s "https://api.clerk.com/v1/users?limit=100&offset=0&order_by=-created_at&created_at=gt:$(date -d '7 days ago' +%s 2>/dev/null || date -v-7d +%s)000" \
+curl -s "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1/users?limit=100&offset=0&order_by=-created_at&created_at=gt:$(date -d '7 days ago' +%s 2>/dev/null || date -v-7d +%s)000" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   | python3 -c "
 import sys, json
@@ -137,7 +137,7 @@ else:
 
 ```bash
 # ONLY run after explicit user confirmation
-curl -s -X DELETE "https://api.clerk.com/v1/users/${USER_ID}" \
+curl -s -X DELETE "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1/users/${USER_ID}" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Deleted: {d}')"
 ```
@@ -146,7 +146,7 @@ curl -s -X DELETE "https://api.clerk.com/v1/users/${USER_ID}" \
 
 ## Clerk Backend API — Full Endpoint Reference
 
-Base URL: `https://api.clerk.com/v1`
+Base URL: `${CLERK_BACKEND_API_URL:-https://api.clerk.dev}` (the override must be an unversioned origin; append `/v1` exactly once when constructing a request)
 Auth: `Authorization: Bearer $CLERK_SECRET_KEY` on every request.
 
 ### Users
@@ -208,13 +208,13 @@ Returns: OrganizationInvitation object
 
 Template for GET requests:
 ```bash
-curl -s "https://api.clerk.com/v1${PATH}${QUERY_STRING}" \
+curl -s "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1${PATH}${QUERY_STRING}" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY"
 ```
 
 Template for POST/PATCH requests:
 ```bash
-curl -s -X ${METHOD} "https://api.clerk.com/v1${PATH}" \
+curl -s -X ${METHOD} "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1${PATH}" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d '${BODY_JSON}'
@@ -222,7 +222,7 @@ curl -s -X ${METHOD} "https://api.clerk.com/v1${PATH}" \
 
 Template for DELETE requests:
 ```bash
-curl -s -X DELETE "https://api.clerk.com/v1${PATH}" \
+curl -s -X DELETE "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1${PATH}" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY"
 ```
 
@@ -405,7 +405,7 @@ curl -s https://raw.githubusercontent.com/clerk/openapi-specs/main/bapi/${versio
 
 **Example — list users and parse response:**
 ```bash
-RESPONSE=$(curl -s "https://api.clerk.com/v1/users?limit=10" \
+RESPONSE=$(curl -s "${CLERK_BACKEND_API_URL:-https://api.clerk.dev}/v1/users?limit=10" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY")
 echo "$RESPONSE" | python3 -c "
 import sys, json

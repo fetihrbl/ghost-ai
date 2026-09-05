@@ -191,6 +191,19 @@ export default function Page() {
   const { signIn, errors, fetchStatus } = useSignIn()
   const router = useRouter()
 
+  const selectSecondFactor = (useBackupCode = false) => {
+    const factors = signIn.supportedSecondFactors
+    if (useBackupCode) {
+      return factors.find((factor) => factor.strategy === 'backup_code')
+    }
+
+    return (
+      factors.find((factor) => factor.strategy === 'phone_code') ??
+      factors.find((factor) => factor.strategy === 'totp') ??
+      factors.find((factor) => factor.strategy === 'backup_code')
+    )
+  }
+
   const handleSubmit = async (formData: FormData) => {
     const emailAddress = formData.get('email') as string
     const password = formData.get('password') as string
@@ -200,9 +213,11 @@ export default function Page() {
       password,
     })
 
-    // If you're using the authenticator app strategy, remove this check.
     if (signIn.status === 'needs_second_factor') {
-      await signIn.mfa.sendPhoneCode()
+      const selectedFactor = selectSecondFactor()
+      if (selectedFactor?.strategy === 'phone_code') {
+        await signIn.mfa.sendPhoneCode()
+      }
     }
 
     if (signIn.status === 'complete') {
@@ -229,13 +244,20 @@ export default function Page() {
   const handleMFAVerification = async (formData: FormData) => {
     const code = formData.get('code') as string
     const useBackupCode = formData.get('useBackupCode') === 'on'
+    const selectedFactor = selectSecondFactor(useBackupCode)
 
-    if (useBackupCode) {
-      await signIn.mfa.verifyBackupCode({ code })
-    } else {
-      await signIn.mfa.verifyPhoneCode({ code })
-      // If you're using the authenticator app strategy, use the following method instead:
-      // await signIn.mfa.verifyTOTP({ code })
+    switch (selectedFactor?.strategy) {
+      case 'phone_code':
+        await signIn.mfa.verifyPhoneCode({ code })
+        break
+      case 'totp':
+        await signIn.mfa.verifyTOTP({ code })
+        break
+      case 'backup_code':
+        await signIn.mfa.verifyBackupCode({ code })
+        break
+      default:
+        throw new Error('No supported MFA factor is available')
     }
 
     if (signIn.status === 'complete') {

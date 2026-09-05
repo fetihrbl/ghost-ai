@@ -1,8 +1,17 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
 
+const signInUrl = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL
+const signUpUrl = process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL
+
+if (!signInUrl?.trim() || !signUpUrl?.trim()) {
+  throw new Error(
+    "NEXT_PUBLIC_CLERK_SIGN_IN_URL and NEXT_PUBLIC_CLERK_SIGN_UP_URL must be defined and non-empty",
+  )
+}
+
 const isPublicRoute = createRouteMatcher([
-  `${process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}(.*)`,
-  `${process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL}(.*)`,
+  `${signInUrl}(.*)`,
+  `${signUpUrl}(.*)`,
 ])
 
 export default clerkMiddleware(async (auth, req) => {

@@ -90,9 +90,10 @@ Rerun the same command on the host before acting on it.
 
 When you run a command without `--app`/`--instance`:
 
-1. The CLI resolves the current repo's profile (normalized git remote → git common dir → current working directory).
-2. If linked, it uses the stored app ID and instance IDs.
-3. If not linked, it errors with guidance to run `clerk link`.
+1. Backend commands that support local-key operation (`users`, Backend `api`, and accountless `config pull`/`config patch`) may resolve a local `sk_` key without a linked profile, as described in the accountless table above.
+2. Commands that require application/account metadata first resolve the current repo's profile (normalized git remote → git common dir → current working directory).
+3. If linked, they use the stored app ID and instance IDs; otherwise, they error with guidance to run `clerk link` or pass `--app` where supported.
+4. Before any destructive or non-idempotent mutation, show the resolved app and instance to the user and require explicit confirmation. A local `sk_` key can target production even without a linked profile.
 
 ## `--app` and `--instance` targeting
 

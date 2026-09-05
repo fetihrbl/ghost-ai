@@ -17,7 +17,7 @@ license: MIT
 
 The `clerk` binary is a pre-authenticated gateway to Clerk's Backend API and Platform API, plus project-level tooling (auth, linking, env pulls, instance config). When the user asks anything that touches a Clerk resource, reach for `clerk` first instead of hand-rolling `curl`.
 
-> This skill targets clerk `latest`. If `clerk --version` disagrees with the latest available CLI, refresh it with `clerk update`, or invoke the latest through a package runner such as `bunx clerk@latest`. The binary is always the source of truth, so run `clerk <command> --help` to verify anything this skill claims.
+> This skill targets clerk `3.3.0`. If `clerk --version` reports a different version, update this reviewed pin deliberately or invoke the pinned release through a package runner such as `bunx clerk@3.3.0`. The binary is always the source of truth, so run `clerk <command> --help` to verify anything this skill claims.
 
 ## Execution environment (prefer the host, understand the sandbox warning)
 
@@ -71,31 +71,31 @@ Before running any `clerk` command, figure out which binary to invoke and bind t
 command -v clerk >/dev/null 2>&1 && clerk --version
 ```
 
-If that prints `latest` or any version you trust, use bare `clerk` for the rest of the session.
+If that prints `3.3.0`, use bare `clerk` for the rest of the session.
 
 Otherwise fall back to a package runner, in this order (matches the CLI's own `preferredRunner` logic, which prefers the runner that matches the project's lockfile):
 
 | Project package manager   | Invocation                       |
 | ------------------------- | -------------------------------- |
-| bun (`bun.lock*`)         | `bunx clerk@latest`     |
-| npm (`package-lock.json`) | `npx -y clerk@latest`   |
-| pnpm (`pnpm-lock.yaml`)   | `pnpm dlx clerk@latest` |
-| yarn >= 2 (`yarn.lock`)   | `yarn dlx clerk@latest` |
+| bun (`bun.lock*`)         | `bunx clerk@3.3.0`     |
+| npm (`package-lock.json`) | `npx -y clerk@3.3.0`   |
+| pnpm (`pnpm-lock.yaml`)   | `pnpm dlx clerk@3.3.0` |
+| yarn >= 2 (`yarn.lock`)   | `yarn dlx clerk@3.3.0` |
 
 Yarn Classic (v1) has no `dlx`; treat those projects as "no preferred runner" and fall back to the first runner from the list above that's on PATH.
 
-The published npm package is **`clerk`**, not `@clerk/cli`. Never teach `npm install -g clerk` as the primary path. If the global CLI is stale or behaves differently from this skill, either upgrade the global install or fall back to the `latest` runner form above.
+The published npm package is **`clerk`**, not `@clerk/cli`. Never teach `npm install -g clerk` as the primary path. If the global CLI differs from this skill, install the reviewed version or fall back to the pinned runner form above.
 
 ## Prerequisites (run at session start)
 
-Before running any other Clerk command in a session, verify the CLI is authenticated, linked, and healthy:
+Before running a command that requires account or linked-project state, verify the CLI is authenticated, linked, and healthy:
 
 ```sh
 clerk --version               # confirm the binary is on PATH
 clerk doctor --json           # structured health check; exit 1 if anything failed
 ```
 
-**Always run `clerk doctor --json` first.** It catches the common setup failures (not logged in, project not linked, missing keys, stale CLI version) up front, so later commands don't fail with confusing errors. In agent mode it also includes a `Host execution` check that warns when Clerk's host-side config / credential directories are not writable, which is the canonical signal that the current invocation is likely sandboxed.
+**Run `clerk doctor --json` first for commands that require account or linked-project state.** It catches the common setup failures (not logged in, project not linked, missing keys, stale CLI version) up front, so later commands don't fail with confusing errors. Accountless `clerk init` and `--keyless` flows are exceptions: they must remain usable when login or project-link checks fail. In agent mode, doctor also includes a `Host execution` check that warns when Clerk's host-side config / credential directories are not writable, which is the canonical signal that the current invocation is likely sandboxed.
 
 Each result has `name`, `status` (`pass`/`warn`/`fail`), `message`, optional `detail`, optional `remedy` (how to fix it), and optional `fix` (label for auto-fixable issues). Parse that and act on it, or surface it to the user. If `Host execution` warns, rerun the command on the host before trusting any auth/link/env/API failures from the same sandboxed run. Rerun `clerk doctor --json` whenever a later command starts misbehaving.
 
@@ -154,7 +154,8 @@ cat payload.json | clerk api /users
 
 # Always preview mutations first
 clerk api /users/user_abc123 -X DELETE --dry-run
-clerk api /users/user_abc123 -X DELETE --yes      # skip confirmation once you've verified
+# After showing the resolved target and obtaining explicit user approval:
+clerk api /users/user_abc123 -X DELETE --yes
 
 # Target a specific app/instance
 clerk api /users --app app_abc123 --instance prod
@@ -174,7 +175,7 @@ In human mode, `clerk api` with no arguments opens an interactive request builde
 
 For instance config, prefer the dedicated `clerk config ...` commands over raw Platform API `/config` paths. They handle dry-run, diffing, and confirmation more cleanly than the raw endpoint form.
 
-**Always `--dry-run` a mutation before running it for real.** Then re-run without `--dry-run` (add `--yes` if you're sure). In agent mode, interactive confirmation is bypassed, so `--dry-run` is the only safety net for destructive calls.
+**Always `--dry-run` a mutation before running it for real.** Confirm the resolved target and preview with the user, obtain explicit approval, and only then re-run without `--dry-run` (adding `--yes` when supported). In agent mode, interactive confirmation is bypassed; neither `--dry-run` nor `--yes` constitutes user approval.
 
 **JSON bodies must be valid JSON.** The CLI validates and rejects malformed payloads.
 
@@ -225,7 +226,7 @@ node -e 'const d=require("/tmp/users.json"); console.log(d.data.length, d.hasMor
 | `clerk apps {list,create}`    | List or create Clerk applications. Defaults to JSON in agent mode.                                                                                                                                                                                                                                                  | (see `--help`)                                                                                                                                                                   |
 | `clerk users` (no subcommand) | Interactive picker for `users` actions in human mode; in agent mode prints the action list and exits `2`. Always pass an explicit subcommand from agents.                                                                                                                                                           | `--app`, `--instance`, `--secret-key`                                                                                                                                            |
 | `clerk users list`            | List users via curated BAPI flags. JSON output (default when piped or in agent mode) is `{data, hasMore}` so callers can paginate without `/users/count`. `--limit` defaults to 100 (max 250).                                                                                                                      | `--limit`, `--offset`, `--query`, `--email-address`, `--phone-number`, `--username`, `--user-id`, `--external-id`, `--order-by`, `--json`, `--app`, `--instance`, `--secret-key` |
-| `clerk users create`          | Create a user from curated flags or a raw BAPI body. **No confirmation prompt in any mode** - it writes immediately. `--yes` is accepted but has no effect. `--dry-run` is the only safety net; preview with it first.                                                                                                                                                                                                                            | `--email`, `--phone`, `--username`, `--password`, `--first-name`, `--last-name`, `--external-id`, `-d, --data`, `--file`, `--dry-run`, `--yes`, `--json`                         |
+| `clerk users create`          | Create a user from curated flags or a raw BAPI body. **No confirmation prompt in any mode** - it writes immediately. `--yes` is accepted but has no effect. Preview with `--dry-run`, show the resolved target, and obtain explicit user approval before the real command.                                                                                                                                                                                                                            | `--email`, `--phone`, `--username`, `--password`, `--first-name`, `--last-name`, `--external-id`, `-d, --data`, `--file`, `--dry-run`, `--yes`, `--json`                         |
 | `clerk users open [user-id]`  | Open a user's dashboard page. Agent mode requires `user-id` and prints a JSON descriptor instead of launching a browser.                                                                                                                                                                                            | (see `--help`)                                                                                                                                                                   |
 | `clerk impersonate [user]`    | Sign in as a user for debugging: creates a short-lived actor token and prints the sign-in URL. Alias: `clerk imp`. Requires `clerk auth login` (no `--secret-key`-only bypass) — every token is stamped `cli:<email>` for auditability. `[user]` accepts a `user_...` ID, exact email, or fuzzy search term. On production it bypasses the user's MFA and may count against the impersonation quota — confirm with the user first. | `--print`, `--open`, `--yes`, `--expires-in <seconds>` (default 3600), `--actor <context>`, `--app`, `--instance`                                                                |
 | `clerk impersonate revoke <actor-token-id>` | Revoke a pending actor token. The token `id` is printed only at creation (the Backend API has no actor-token list endpoint), so capture it then.                                                                                                                                                      | `--app`, `--instance`                                                                                                                                                            |
@@ -249,14 +250,14 @@ node -e 'const d=require("/tmp/users.json"); console.log(d.data.length, d.hasMor
 
 The CLI auto-detects agent mode when stdout is not a TTY, or when `--mode agent` / `CLERK_MODE=agent` is set. In agent mode:
 
-- **Interactive prompts are disabled.** Commands that would normally show pickers (`link` without `--app`, `unlink` without `--yes`, `users` without a subcommand) either auto-resolve or exit with a usage error. `clerk api` with no args prints usage guidance and exits 0; pass an endpoint (or `ls`) explicitly. Always pass explicit flags (`--app`, `--yes`) in scripted calls.
+- **Interactive prompts are disabled.** Commands that would normally show pickers (`link` without `--app`, `unlink` without `--yes`, `users` without a subcommand) either auto-resolve or exit with a usage error. `clerk api` with no args prints usage guidance and exits 0; pass an endpoint (or `ls`) explicitly. Always pass explicit targeting flags such as `--app`; add `--yes` only after the user has approved the resolved mutation.
 - **Host-sensitive operations emit a sandbox warning once per invocation.** Home-directory Clerk state, keychain access, networked Clerk calls, browser launch, and localhost OAuth callback setup can trigger the warning shown above. If it appears, rerun the same command on the host before trusting the result.
 - **If your harness does not clearly present as agent mode, force it.** Use `--mode agent` or `CLERK_MODE=agent` when you want the CLI's non-interactive behavior and sandbox warning path to apply deterministically.
 - **`link` supports deterministic agent flows.** In agent mode, `clerk link --app <id>` links directly. Without `--app`, the CLI will try silent key-based autolink first; if it cannot determine the app unambiguously, it exits and tells you to pass `--app`.
 - **`init` needs no login — do not log in first.** An unauthenticated agent run mints an unclaimed app with temporary dev keys: no flag, no account, no browser. `--app <id>` or a pre-link targets a real app instead; `--keyless` forces the temporary-keys path over both a session and an existing link. A framework without temporary-key support and no app target prints manual guidance and exits cleanly. Flag exclusivity is in the command table above.
 - **`--fresh` is destructive.** It replaces the temporary app and overwrites the env keys and `.clerk/keyless.json` with no prompt, orphaning the previous app and its users. Never pass it just to re-run `init`.
 - **`unlink` requires `--yes` in agent mode.** It gates on `isAgent() && !options.yes` and exits with a usage error without it. This is the exception, not the pattern - see the next bullet.
-- **Only `unlink` actually requires `--yes`.** Every other confirmation gate is written as `isHuman() && !options.yes`, so agent mode skips it outright: the mutation executes with no prompt and no error. Passing `--yes` is harmless but changes nothing. Do not treat it as a safety gate - `--dry-run` is the real one.
+- **Only `unlink` actually requires `--yes`.** Every other confirmation gate is written as `isHuman() && !options.yes`, so agent mode skips it outright: the mutation executes with no prompt and no error. Passing `--yes` is harmless but changes nothing. Do not treat it or `--dry-run` as approval: obtain explicit user approval before every destructive or non-idempotent mutation.
 - **`impersonate` requires the `[user]` positional in agent mode.** If a search term matches multiple users, it exits `2` listing candidate user IDs — retry with a specific `user_...` ID. Output is a JSON object (`{url, id, userId, actor, ...}`); surface `url` to the user and capture `id` — it is the only chance to record the revoke handle.
 - **`webhooks listen` is long-running.** Run it in the background. In agent mode (or with `--json`) it emits NDJSON: one `ready` line (`{type:"ready", relay_url, forward_to}`), then one `event` line per delivery — each event line can be fed back to `clerk webhooks verify --delivery`.
 - **`doctor --fix` is ignored.** Parse `doctor --json` output's `remedy` field and act on it yourself.
@@ -276,7 +277,7 @@ Full matrix and sandbox details in [references/agent-mode.md](references/agent-m
 ## Safety rules for autonomous use
 
 1. **Discover before acting:** `clerk api ls <keyword>` before `clerk api <path>`.
-2. **Preview mutations:** `--dry-run` on every `config patch`, `config put`, `api -X POST/PATCH/PUT/DELETE`.
+2. **Preview and approve mutations:** use `--dry-run` on every `config patch`, `config put`, `api -X POST/PATCH/PUT/DELETE`, then obtain explicit user approval for the resolved target before the real command.
 3. **Target explicitly in production:** pass `--instance prod` rather than relying on defaults, and confirm with the user before any production mutation.
 4. **Never commit secrets:** `env pull` writes to `.env.local` (which should be gitignored). Don't paste secret keys into code or chat.
 5. **Use `doctor --json`** to diagnose before assuming the CLI is broken.
