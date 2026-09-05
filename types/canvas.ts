@@ -43,6 +43,11 @@ const SHAPE_DEFAULT_SIZES: Record<NodeShape, ShapeSize> = {
   hexagon: { width: 170, height: 100 },
 }
 
+const MIN_NODE_WIDTH = 60
+const MIN_NODE_HEIGHT = 40
+
+const DEFAULT_EDGE_COLOR = "#f8fafc"
+
 const SHAPE_DRAG_MIME_TYPE = "application/x-ghost-shape"
 
 interface ShapeDragPayload {
@@ -62,12 +67,20 @@ interface CanvasNodeData {
   shape: NodeShape
 }
 
+interface CanvasEdgeData {
+  [key: string]: unknown
+  label?: string
+}
+
 type CanvasNode = Node<CanvasNodeData, "canvasNode">
-type CanvasEdge = Edge<Record<string, never>, "canvasEdge">
+type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">
 
 export {
+  DEFAULT_EDGE_COLOR,
   DEFAULT_NODE_COLOR,
   getNodeTextColor,
+  MIN_NODE_HEIGHT,
+  MIN_NODE_WIDTH,
   NODE_COLORS,
   NODE_SHAPES,
   SHAPE_DEFAULT_SIZES,
@@ -75,6 +88,7 @@ export {
 }
 export type {
   CanvasEdge,
+  CanvasEdgeData,
   CanvasNode,
   CanvasNodeData,
   NodeColor,
